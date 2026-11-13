@@ -2,14 +2,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { formatPrice, mediaFrom, type StoreProduct } from '@/lib/store-shared'
 
-function getLayoutBadge(product: StoreProduct): string | null {
-  if (product.layout === '87' || product.layout === 'TKL' || product.name.includes('87키'))
-    return '87키 (텐키리스)'
-  if (product.layout === '75' || product.name.includes('75%')) return '75% (컴팩트)'
-  if (product.layout === '65' || product.name.includes('65%')) return '65% (미니멀)'
-  return null
-}
-
 export function ProductCard({
   product,
   priority = false,
@@ -22,7 +14,6 @@ export function ProductCard({
   const isSoldOut =
     Boolean(product.isSoldOut) || product.stockQuantity <= 0 || product.status === 'SOLD_OUT'
   const isUnavailable = isDiscontinued || isSoldOut
-  const layoutBadge = getLayoutBadge(product)
 
   return (
     <Link
@@ -43,12 +34,6 @@ export function ProductCard({
           <div className="absolute inset-0 grid place-items-center text-xs tracking-[0.16em] text-zinc-400">
             IMAGE PENDING
           </div>
-        )}
-        {/* 방안 C: 규격 / 배열 뱃지 (썸네일 좌측 상단) */}
-        {layoutBadge && (
-          <span className="absolute left-3 top-3 z-10 rounded bg-white/95 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-zinc-900 shadow-xs backdrop-blur-xs">
-            {layoutBadge}
-          </span>
         )}
         {isDiscontinued ? (
           <span className="absolute right-3 top-3 rounded bg-zinc-700 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white">

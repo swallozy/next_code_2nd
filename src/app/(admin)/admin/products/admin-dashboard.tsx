@@ -20,7 +20,7 @@ type IconName =
   | 'menu'
 
 const categories = [
-  { label: '키보드', value: 'keyboards' },
+  { label: '기판 (PCB)', value: 'pcb' },
   { label: '스위치', value: 'switches' },
   { label: '키캡', value: 'keycaps' },
   { label: '하우징', value: 'housing' },

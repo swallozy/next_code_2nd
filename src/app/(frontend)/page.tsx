@@ -7,9 +7,9 @@ import { getPreviewProducts } from '@/features/products/preview-data'
 
 const categoryCards = [
   {
-    label: 'KEYBOARDS',
-    detail: 'Built for the daily ritual',
-    href: '/products?category=keyboards',
+    label: 'PCB',
+    detail: 'Precision PCBs & barebone kits',
+    href: '/products?category=pcb',
   },
   { label: 'SWITCHES', detail: 'Find your perfect feel', href: '/products?category=switches' },
   { label: 'KEYCAPS', detail: 'A new texture for every key', href: '/products?category=keycaps' },

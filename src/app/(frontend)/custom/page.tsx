@@ -7,23 +7,8 @@ import { useRouter } from 'next/navigation'
 import { ArrowIcon } from '@/components/icons'
 import { useCart } from '@/features/cart/cart-provider'
 import { MOCK_PRODUCTS } from '@/features/products/mock-data'
-import type { Product, ProductOption } from '@/features/products/types'
+import type { Product } from '@/features/products/types'
 import { formatPrice } from '@/lib/store-shared'
-
-// 하우징 레이아웃 코드에 맞춰 키캡의 옵션을 탐색하는 헬퍼 함수
-const getMatchingKeycapOption = (keycapProduct: Product, layout?: string): ProductOption | null => {
-  if (!keycapProduct?.options || keycapProduct.options.length === 0) return null
-
-  return (
-    keycapProduct.options.find((opt) => {
-      if (layout === '87')
-        return opt.optionName.includes('87') || opt.optionName.includes('텐키리스')
-      if (layout === '75') return opt.optionName.includes('75') || opt.optionName.includes('컴팩트')
-      if (layout === '65') return opt.optionName.includes('65') || opt.optionName.includes('미니멀')
-      return false
-    }) || keycapProduct.options[0]
-  )
-}
 
 interface ManualSelectionState {
   housing: Product | null
@@ -92,12 +77,6 @@ export default function CustomBuilderPage() {
       })
     : allSwitches
 
-  // 3. 호환 키캡: 선택된 하우징 또는 기판의 layout 규격과 일치
-  const activeLayout = manualSelection.housing?.layout || manualSelection.pcb?.layout
-  const compatibleKeycaps = activeLayout
-    ? allKeycaps.filter((k) => k.layout === activeLayout)
-    : allKeycaps
-
   // 수동 부품 선택 및 선택 해제(토글) 핸들러
   const handleSelectPart = (category: keyof ManualSelectionState, product: Product) => {
     const isUnavailable =
@@ -121,9 +100,6 @@ export default function CustomBuilderPage() {
         const next: ManualSelectionState = { ...prev, [category]: null }
         if (category === 'housing') {
           next.pcb = null
-          if (next.keycap) {
-            next.keycap = null
-          }
         }
         return next
       }
@@ -133,20 +109,10 @@ export default function CustomBuilderPage() {
 
       const next: ManualSelectionState = { ...prev, [category]: itemToSelect }
 
-      // 하우징 변경 시 규격 재검증 (기판 및 키캡 배열 불일치 시 초기화)
+      // 하우징 변경 시 규격 재검증 (기판 배열 불일치 시 초기화, 키캡은 풀배열 공용이므로 유지)
       if (category === 'housing') {
         if (prev.pcb && prev.pcb.layout !== product.layout) {
           next.pcb = null
-        }
-        if (prev.keycap && prev.keycap.layout !== product.layout) {
-          next.keycap = null
-        }
-      }
-
-      // 기판 변경 시 키캡 규격 재검증 (하우징이 아직 없는 경우)
-      if (category === 'pcb' && !prev.housing) {
-        if (prev.keycap && prev.keycap.layout !== product.layout) {
-          next.keycap = null
         }
       }
 
@@ -224,16 +190,9 @@ export default function CustomBuilderPage() {
     }
 
     const availableKeycaps = allKeycaps.filter(
-      (k) =>
-        !k.isSoldOut &&
-        k.stockQuantity > 0 &&
-        k.status !== 'DISCONTINUED' &&
-        (matchedHousing.layout ? k.layout === matchedHousing.layout : true),
+      (k) => !k.isSoldOut && k.stockQuantity > 0 && k.status !== 'DISCONTINUED',
     )
-    const keycapCandidates =
-      availableKeycaps.length > 0
-        ? availableKeycaps
-        : allKeycaps.filter((k) => (matchedHousing.layout ? k.layout === matchedHousing.layout : true))
+    const keycapCandidates = availableKeycaps.length > 0 ? availableKeycaps : allKeycaps
 
     const matchedKeycap =
       keycapCandidates.find((k) => k.material === surveyAnswers.keycapStyle) || keycapCandidates[0]
@@ -241,9 +200,6 @@ export default function CustomBuilderPage() {
       alert('추천 가능한 키캡 부품이 없습니다.')
       return
     }
-
-    const matchedKeycapOption = getMatchingKeycapOption(matchedKeycap, matchedHousing.layout)
-    const keycapExtraPrice = matchedKeycapOption?.additionalPrice || 0
 
     const housingPrice = matchedHousing.basePrice || 0
     const pcbPrice = matchedPcb.basePrice || 0
@@ -254,12 +210,9 @@ export default function CustomBuilderPage() {
       housing: matchedHousing,
       pcb: matchedPcb,
       switchPart: matchedSwitch,
-      keycap: {
-        ...matchedKeycap,
-        selectedOption: matchedKeycapOption,
-      },
+      keycap: matchedKeycap,
       assemblyFee: 20000,
-      totalPrice: housingPrice + pcbPrice + switchPrice + keycapPrice + keycapExtraPrice + 20000,
+      totalPrice: housingPrice + pcbPrice + switchPrice + keycapPrice + 20000,
     })
     setSurveyStep(5)
   }
@@ -337,7 +290,7 @@ export default function CustomBuilderPage() {
       case 3:
         return { list: compatibleSwitches, label: '스위치 (SWITCHES)', field: 'switchPart' }
       case 4:
-        return { list: compatibleKeycaps, label: '키캡 (KEYCAPS)', field: 'keycap' }
+        return { list: allKeycaps, label: '키캡 (KEYCAPS)', field: 'keycap' }
       default:
         return { list: allHousings, label: '하우징 (HOUSING)', field: 'housing' }
     }
@@ -836,9 +789,9 @@ export default function CustomBuilderPage() {
                     중)
                   </span>
                 )}
-                {currentStep === 4 && activeLayout && (
+                {currentStep === 4 && (
                   <span className="text-zinc-900 font-medium">
-                    ({activeLayout === '87' ? '87키(텐키리스)' : `${activeLayout}%`} 규격 전용 키캡만 표시 중)
+                    (풀배열 공용 키캡 — 모든 배열 호환 가능)
                   </span>
                 )}
               </span>

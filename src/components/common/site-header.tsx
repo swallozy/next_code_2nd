@@ -30,14 +30,14 @@ const categories: CategoryItem[] = [
     ],
   },
   {
-    label: 'KEYBOARDS',
-    href: '/products?category=keyboards',
+    label: 'PCB',
+    href: '/products?category=pcb',
     children: [
-      { name: '65%', href: '/products?category=keyboards&subcategory=kb-65' },
-      { name: '75%', href: '/products?category=keyboards&subcategory=kb-75' },
-      { name: '텐키리스', href: '/products?category=keyboards&subcategory=kb-tkl' },
-      { name: '핫스왑', href: '/products?category=keyboards&subcategory=pcb-hotswap' },
-      { name: '유무선/블루투스', href: '/products?category=keyboards&subcategory=pcb-wireless' },
+      { name: '65%', href: '/products?category=pcb&subcategory=kb-65' },
+      { name: '75%', href: '/products?category=pcb&subcategory=kb-75' },
+      { name: '텐키리스', href: '/products?category=pcb&subcategory=kb-tkl' },
+      { name: '핫스왑', href: '/products?category=pcb&subcategory=pcb-hotswap' },
+      { name: '유무선/블루투스', href: '/products?category=pcb&subcategory=pcb-wireless' },
     ],
   },
   {

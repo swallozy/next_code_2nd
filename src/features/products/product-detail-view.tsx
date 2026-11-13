@@ -199,12 +199,17 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             {product.shippingFee ? formatPrice(product.shippingFee) : 'Complimentary'}
           </dd>
 
-          {product.layout && (
+          {product.category === 'keycaps' ? (
+            <>
+              <dt className="text-zinc-500">Layout</dt>
+              <dd className="text-right font-medium">풀배열 공용 (모든 배열 호환)</dd>
+            </>
+          ) : product.layout ? (
             <>
               <dt className="text-zinc-500">Layout</dt>
               <dd className="text-right font-medium">{product.layout}%</dd>
             </>
-          )}
+          ) : null}
 
           {product.pin && (
             <>

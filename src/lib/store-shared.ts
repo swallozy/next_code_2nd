@@ -11,7 +11,7 @@ export type StoreProduct = {
   name: string
   slug: string
   basePrice: number
-  category: 'keyboards' | 'switches' | 'keycaps' | 'housing'
+  category: 'pcb' | 'switches' | 'keycaps' | 'housing'
   description: string
   stockQuantity: number
   shippingFee: number
