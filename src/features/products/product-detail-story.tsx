@@ -189,7 +189,7 @@ export function ProductDetailStory({
       {/* 섹션 앵커 네비게이션 */}
       <nav
         aria-label="상품 상세 정보 목차"
-        className="sticky top-[72px] z-20 -mx-2 mb-14 flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-white/90 px-2 py-3 backdrop-blur-md md:top-[84px]"
+        className="sticky top-18 z-20 -mx-2 mb-14 flex flex-wrap items-center gap-2 border-b border-zinc-200 bg-white/90 px-2 py-3 backdrop-blur-md md:top-21"
       >
         {[
           { id: 'detail-story', label: '01. 제품 스토리' },
@@ -253,7 +253,7 @@ export function ProductDetailStory({
             {extraImages.map((img, idx) => (
               <div
                 className={`relative overflow-hidden rounded-2xl bg-zinc-100 ${
-                  idx === 0 && extraImages.length === 3 ? 'col-span-2 aspect-[16/9] max-md:col-span-1 max-md:aspect-[4/3]' : 'aspect-[4/3]'
+                  idx === 0 && extraImages.length === 3 ? 'col-span-2 aspect-video max-md:col-span-1 max-md:aspect-4/3' : 'aspect-4/3'
                 }`}
                 key={img.id || idx}
               >

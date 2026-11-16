@@ -1,9 +1,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { BackendErrorState } from '@/components/common/backend-error-state'
 import { ArrowIcon } from '@/components/icons'
 import { ProductCard } from '@/components/common/product-card'
-import { mediaFrom } from '@/lib/store-shared'
-import { getPreviewProducts } from '@/features/products/preview-data'
+import { getPaginatedProducts } from '@/features/products/api'
+import { mediaFrom, type StoreProduct } from '@/lib/store-shared'
+
+export const dynamic = 'force-dynamic'
 
 const categoryCards = [
   {
@@ -15,15 +18,24 @@ const categoryCards = [
   { label: 'KEYCAPS', detail: 'A new texture for every key', href: '/products?category=keycaps' },
 ]
 
-export default function HomePage() {
-  const products = getPreviewProducts()
+export default async function HomePage() {
+  let products: StoreProduct[] = []
+  let backendError: string | null = null
+
+  try {
+    const res = await getPaginatedProducts({ page: 0, size: 3 })
+    products = res.content
+  } catch (err) {
+    backendError = err instanceof Error ? err.message : '알 수 없는 네트워크/서버 오류'
+  }
+
   const hero = products[0]
   const heroImage = hero ? mediaFrom(hero.images[0]) : null
 
   return (
     <>
       <section className="mx-auto w-[min(80%,1440px)] py-8 max-lg:w-[92%]">
-        <div className="relative min-h-[620px] overflow-hidden rounded-xl bg-zinc-100 max-md:min-h-[520px]">
+        <div className="relative min-h-155 overflow-hidden rounded-xl bg-zinc-900 max-md:min-h-130">
           {heroImage?.url && (
             <Image
               alt={heroImage.alt || hero.name}
@@ -35,7 +47,13 @@ export default function HomePage() {
               src={heroImage.url}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-r from-black/75 via-black/35 to-transparent" />
+          {backendError && (
+            <span className="absolute right-6 top-6 inline-flex items-center gap-2 rounded-full bg-red-600/90 px-3.5 py-1.5 text-[11px] font-semibold tracking-wider text-white backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-white" />
+              BACKEND OFFLINE
+            </span>
+          )}
           <div className="absolute inset-x-0 bottom-0 p-12 text-white max-md:p-7">
             <p className="mb-5 text-xs font-semibold tracking-[0.2em]">DESIGNED FOR THE DESK</p>
             <h1 className="max-w-3xl text-6xl font-medium leading-[0.95] tracking-[-0.065em] max-md:text-4xl">
@@ -67,7 +85,12 @@ export default function HomePage() {
             VIEW ALL <ArrowIcon />
           </Link>
         </div>
-        {products.length ? (
+        {backendError ? (
+          <BackendErrorState
+            message={backendError}
+            title="백엔드 / DB 연결이 끊어져 상품을 불러올 수 없습니다"
+          />
+        ) : products.length ? (
           <div className="grid grid-cols-3 gap-7 max-lg:grid-cols-2 max-sm:grid-cols-1">
             {products.slice(0, 3).map((product, idx) => (
               <ProductCard key={product.id} priority={idx === 0} product={product} />
@@ -75,7 +98,7 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-zinc-300 py-24 text-center text-sm text-zinc-500">
-            Products are being prepared in the studio.
+            DB에 등록된 상품이 없습니다.
           </div>
         )}
       </section>
@@ -89,7 +112,7 @@ export default function HomePage() {
           <div className="grid grid-cols-3 gap-5 max-md:grid-cols-1">
             {categoryCards.map((category, index) => (
               <Link
-                className="group flex aspect-[4/5] flex-col justify-between rounded-xl bg-white p-7 shadow-[0_16px_40px_rgba(0,0,0,0.035)] transition hover:-translate-y-1"
+                className="group flex aspect-4/5 flex-col justify-between rounded-xl bg-white p-7 shadow-[0_16px_40px_rgba(0,0,0,0.035)] transition hover:-translate-y-1"
                 href={category.href}
                 key={category.label}
               >
@@ -112,7 +135,7 @@ export default function HomePage() {
             <p className="text-2xl font-semibold tracking-[-0.04em]">MONO / KEYS</p>
             <p className="mt-3 text-sm text-zinc-500">Objects for focused work.</p>
           </div>
-          <p className="text-xs tracking-[0.1em] text-zinc-500 max-sm:mt-10">© 2025 MONO KEYS</p>
+          <p className="text-xs tracking-widest text-zinc-500 max-sm:mt-10">© 2025 MONO KEYS</p>
         </div>
       </footer>
     </>

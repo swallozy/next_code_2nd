@@ -20,6 +20,7 @@ export class ApiRequestError extends Error {
 // 모든 API 요청에 JSON 헤더와 세션 쿠키를 공통 적용합니다.
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
+    cache: 'no-store',
     ...init,
     credentials: 'include',
     headers: {

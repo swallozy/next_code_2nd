@@ -344,7 +344,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             className="relative flex max-h-[85vh] w-full max-w-4xl flex-col items-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative aspect-square w-full max-w-[680px] overflow-hidden rounded-2xl bg-zinc-900">
+            <div className="relative aspect-square w-full max-w-170 overflow-hidden rounded-2xl bg-zinc-900">
               <Image
                 alt={currentImage.alt || product.name}
                 className="object-contain"

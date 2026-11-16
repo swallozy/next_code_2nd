@@ -2,15 +2,12 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { BackendErrorState } from '@/components/common/backend-error-state'
 import { ProductCard } from '@/components/common/product-card'
 import { getPaginatedProducts } from '@/features/products/api'
 import type { StoreProduct } from '@/lib/store-shared'
 
-interface ProductGridProps {
-  initialProducts?: StoreProduct[]
-}
-
-export function ProductGrid({ initialProducts = [] }: ProductGridProps) {
+export function ProductGrid() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -20,16 +17,19 @@ export function ProductGrid({ initialProducts = [] }: ProductGridProps) {
   const pageParam = parseInt(searchParams.get('page') || '0', 10)
   const currentPage = isNaN(pageParam) ? 0 : pageParam
 
-  const [products, setProducts] = useState<StoreProduct[]>(initialProducts)
+  const [products, setProducts] = useState<StoreProduct[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [totalElements, setTotalElements] = useState(initialProducts.length)
+  const [totalElements, setTotalElements] = useState(0)
   const [isPending, startTransition] = useTransition()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
-  // URL 파라미터가 바뀔 때마다 데이터 로드
+  // URL 파라미터가 바뀔 때마다 백엔드 API에서 실시간 데이터 로드
   useEffect(() => {
     let ignore = false
     setLoading(true)
+    setError(null)
 
     getPaginatedProducts({
       categoryId: currentCategory === 'all' ? undefined : currentCategory,
@@ -46,6 +46,12 @@ export function ProductGrid({ initialProducts = [] }: ProductGridProps) {
       })
       .catch((err) => {
         console.error('Failed to load products:', err)
+        if (!ignore) {
+          setProducts([])
+          setTotalPages(1)
+          setTotalElements(0)
+          setError(err instanceof Error ? err.message : '상품 목록을 불러오지 못했습니다.')
+        }
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -54,7 +60,7 @@ export function ProductGrid({ initialProducts = [] }: ProductGridProps) {
     return () => {
       ignore = true
     }
-  }, [currentCategory, currentSubcategory, currentPage])
+  }, [currentCategory, currentSubcategory, currentPage, retryCount])
 
   // 서브카테고리 제거
   const handleClearSubcategory = () => {
@@ -104,6 +110,12 @@ export function ProductGrid({ initialProducts = [] }: ProductGridProps) {
         <div className="py-24 text-center text-sm text-zinc-400">
           상품 목록을 불러오는 중입니다...
         </div>
+      ) : error ? (
+        <BackendErrorState
+          message={error}
+          onRetry={() => setRetryCount((prev) => prev + 1)}
+          title="상품 목록을 백엔드/DB에서 불러오지 못했습니다"
+        />
       ) : products.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 py-24 text-center text-zinc-500">
           해당 조건에 등록된 상품이 없습니다.

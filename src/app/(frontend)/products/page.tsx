@@ -1,10 +1,7 @@
 import { Suspense } from 'react'
 import { ProductGrid } from '@/features/products/product-grid'
-import { getPreviewProducts } from '@/features/products/preview-data'
 
 export default function ProductsPage() {
-  const initialProducts = getPreviewProducts()
-
   return (
     <section className="mx-auto w-[min(80%,1440px)] py-20 max-lg:w-[92%]">
       <div className="mb-16 max-w-3xl">
@@ -20,7 +17,7 @@ export default function ProductsPage() {
           <div className="py-24 text-center text-sm text-zinc-400">Loading collection...</div>
         }
       >
-        <ProductGrid initialProducts={initialProducts} />
+        <ProductGrid />
       </Suspense>
     </section>
   )

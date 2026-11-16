@@ -1,14 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { BackendErrorState } from '@/components/common/backend-error-state'
 import { ArrowIcon } from '@/components/icons'
 import { useCart } from '@/features/cart/cart-provider'
-import { MOCK_PRODUCTS } from '@/features/products/mock-data'
+import { getPaginatedProducts } from '@/features/products/api'
 import type { Product } from '@/features/products/types'
-import { formatPrice } from '@/lib/store-shared'
+import { formatPrice, mediaFrom, type StoreProduct } from '@/lib/store-shared'
+
+function inferSoundType(switchType?: string, description?: string): string {
+  const norm = (switchType || '').toLowerCase()
+  if (norm === 'linear') return 'thock'
+  if (norm === 'tactile') return 'clack'
+  if (norm === 'silent') return 'silent'
+  if (norm === 'click') return 'clicky'
+  if (description?.includes('저소음')) return 'silent'
+  if (description?.includes('클릭')) return 'clicky'
+  return 'thock'
+}
+
+function mapStoreProductToBuilderProduct(item: StoreProduct): Product {
+  const firstImage =
+    item.galleryImages?.[0] ||
+    (item.images?.length ? mediaFrom(item.images[0])?.url || '' : '')
+  const soldOutFlag = Boolean(
+    item.isSoldOut ||
+      (item as { soldOut?: boolean }).soldOut ||
+      item.stockQuantity <= 0 ||
+      item.status === 'SOLD_OUT',
+  )
+
+  return {
+    productId: Number(item.id),
+    categoryId: item.categoryId || item.category,
+    parentCategoryId: item.parentCategoryId || item.category,
+    name: item.name,
+    basePrice: item.basePrice,
+    stockQuantity: item.stockQuantity,
+    thumbnailUrl: firstImage,
+    description: item.description || '',
+    options: [],
+    layout: item.layout,
+    supportPins: item.supportPins && item.supportPins.length > 0 ? item.supportPins : [3, 5],
+    isWireless: item.isWireless,
+    pin: item.pin,
+    switchType: item.switchType,
+    soundType: item.soundType || inferSoundType(item.switchType, item.description),
+    material: item.material,
+    style: item.style,
+    isSoldOut: soldOutFlag,
+    status: item.status || (soldOutFlag ? 'SOLD_OUT' : 'ACTIVE'),
+    galleryImages: item.galleryImages,
+    subCategoryName: item.subCategoryName,
+  }
+}
 
 interface ManualSelectionState {
   housing: Product | null
@@ -31,6 +79,28 @@ export default function CustomBuilderPage() {
   const { addItem, openCart } = useCart()
   const [mode, setMode] = useState<'auto' | 'manual'>('auto')
 
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true)
+    setCatalogError(null)
+    try {
+      const res = await getPaginatedProducts({ page: 0, size: 200 })
+      setCatalogProducts(res.content.map(mapStoreProductToBuilderProduct))
+    } catch (err) {
+      setCatalogProducts([])
+      setCatalogError(err instanceof Error ? err.message : '부품 목록을 불러오지 못했습니다.')
+    } finally {
+      setCatalogLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadCatalog()
+  }, [loadCatalog])
+
   // --- 수동 선택 상태 ---
   const [currentStep, setCurrentStep] = useState<number>(1) // 1: 하우징, 2: 기판, 3: 스위치, 4: 키캡
   const [manualSelection, setManualSelection] = useState<ManualSelectionState>({
@@ -52,14 +122,14 @@ export default function CustomBuilderPage() {
   const [recommendedBuild, setRecommendedBuild] = useState<BuildData | null>(null)
 
   // ==================== 부품 목록 데이터 분리 ====================
-  const allHousings = MOCK_PRODUCTS.filter((p) => p.parentCategoryId === 'housing')
-  const allPcbs = MOCK_PRODUCTS.filter(
+  const allHousings = catalogProducts.filter((p) => p.parentCategoryId === 'housing')
+  const allPcbs = catalogProducts.filter(
     (p) => p.parentCategoryId === 'keyboards' || p.parentCategoryId === 'pcb',
   )
-  const allSwitches = MOCK_PRODUCTS.filter(
+  const allSwitches = catalogProducts.filter(
     (p) => p.parentCategoryId === 'switches' || p.parentCategoryId === 'switch',
   )
-  const allKeycaps = MOCK_PRODUCTS.filter(
+  const allKeycaps = catalogProducts.filter(
     (p) => p.parentCategoryId === 'keycaps' || p.parentCategoryId === 'keycap',
   )
 
@@ -344,10 +414,22 @@ export default function CustomBuilderPage() {
         </div>
       </div>
 
-      {/* ========================================================
+      {catalogLoading ? (
+        <div className="py-24 text-center text-sm text-zinc-400">
+          백엔드 DB에서 커스텀 부품 목록을 불러오는 중입니다...
+        </div>
+      ) : catalogError ? (
+        <BackendErrorState
+          message={catalogError}
+          onRetry={loadCatalog}
+          title="커스텀 부품 목록을 백엔드/DB에서 불러오지 못했습니다"
+        />
+      ) : (
+        <>
+          {/* ========================================================
           [MODE A]: 자동 맞춤 설문형 모드 (AUTO)
           ======================================================== */}
-      {mode === 'auto' && (
+          {mode === 'auto' && (
         <div className="mx-auto max-w-3xl">
           {surveyStep <= 4 ? (
             <div className="rounded-2xl border border-zinc-200 bg-white p-10 shadow-sm">
@@ -937,6 +1019,8 @@ export default function CustomBuilderPage() {
             </div>
           </div>
         </div>
+          )}
+        </>
       )}
     </section>
   )
