@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { CloseIcon, MinusIcon, PlusIcon } from '@/components/icons'
 import { useCart } from '@/features/cart/cart-provider'
 import { ProductDetailStory } from '@/features/products/product-detail-story'
-import { formatPrice, mediaFrom, type StoreProduct } from '@/lib/store-shared'
+import { formatPrice, isProductSoldOut, mediaFrom, type StoreProduct } from '@/lib/store-shared'
 
 interface ProductDetailViewProps {
   product: StoreProduct
@@ -50,11 +50,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   // 수량
   const [quantity, setQuantity] = useState(1)
 
-  // 품절 및 판매중지 상태
-  const isDiscontinued = product.status === 'DISCONTINUED'
-  const isSoldOut =
-    Boolean(product.isSoldOut) || product.stockQuantity <= 0 || product.status === 'SOLD_OUT'
-  const isUnavailable = isDiscontinued || isSoldOut
+  // 품절 상태
+  const isSoldOut = isProductSoldOut(product)
 
   // 수량 조절
   const handleDecreaseQuantity = () => {
@@ -71,10 +68,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
 
   // 장바구니 담기
   const handleAddToCart = () => {
-    if (isUnavailable) {
-      alert(
-        isDiscontinued ? '판매가 중단된 상품입니다.' : '현재 품절되어 장바구니에 담을 수 없습니다.',
-      )
+    if (isSoldOut) {
+      alert('현재 품절되어 장바구니에 담을 수 없습니다.')
       return
     }
 
@@ -105,7 +100,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                 <Image
                   alt={currentImage.alt || product.name}
                   className={`object-cover transition-all duration-300 group-hover:scale-[1.02] ${
-                    isUnavailable ? 'opacity-60' : ''
+                    isSoldOut ? 'opacity-60' : ''
                   }`}
                   fill
                   priority
@@ -160,16 +155,12 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
               </button>
             )}
 
-            {/* 품절/단종 뱃지 */}
-            {isDiscontinued ? (
-              <span className="absolute right-4 top-4 rounded bg-zinc-800 px-3 py-1 text-xs font-semibold tracking-wider text-white">
-                DISCONTINUED
-              </span>
-            ) : isSoldOut ? (
+            {/* 품절 배지 */}
+            {isSoldOut && (
               <span className="absolute right-4 top-4 rounded bg-zinc-950 px-3 py-1 text-xs font-semibold tracking-wider text-white">
                 SOLD OUT
               </span>
-            ) : null}
+            )}
           </div>
 
           {/* 썸네일 리스트 */}
@@ -226,7 +217,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             <button
               aria-label="Decrease quantity"
               className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
-              disabled={isUnavailable}
+              disabled={isSoldOut}
               onClick={handleDecreaseQuantity}
               type="button"
             >
@@ -236,7 +227,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
             <button
               aria-label="Increase quantity"
               className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
-              disabled={isUnavailable}
+              disabled={isSoldOut}
               onClick={handleIncreaseQuantity}
               type="button"
             >
@@ -246,19 +237,15 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
 
           <button
             className={`h-14 flex-1 rounded-md px-6 text-sm font-semibold tracking-wide transition ${
-              isUnavailable
+              isSoldOut
                 ? 'cursor-not-allowed bg-zinc-200 text-zinc-400'
                 : 'bg-zinc-950 text-white hover:bg-zinc-800 active:scale-[0.99]'
             }`}
-            disabled={isUnavailable}
+            disabled={isSoldOut}
             onClick={handleAddToCart}
             type="button"
           >
-            {isDiscontinued
-              ? 'DISCONTINUED'
-              : isSoldOut
-                ? 'SOLD OUT'
-                : `ADD TO CART — ${formatPrice(unitPrice * quantity)}`}
+            {isSoldOut ? 'SOLD OUT' : `ADD TO CART — ${formatPrice(unitPrice * quantity)}`}
           </button>
         </div>
 
@@ -266,7 +253,7 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
         <dl className="mt-10 grid grid-cols-2 gap-y-4 border-t border-zinc-200 pt-7 text-sm">
           <dt className="text-zinc-500">Stock</dt>
           <dd className="text-right font-medium">
-            {isUnavailable ? 'Out of stock' : `${product.stockQuantity} available`}
+            {isSoldOut ? 'Out of stock' : `${product.stockQuantity} available`}
           </dd>
 
           <dt className="text-zinc-500">Shipping</dt>

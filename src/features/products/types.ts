@@ -38,7 +38,7 @@ export interface Product {
   material?: string
   style?: string
   isSoldOut?: boolean
-  status?: 'ACTIVE' | 'SOLD_OUT' | 'DISCONTINUED'
+  status?: 'ACTIVE' | 'SOLD_OUT'
   selectedOption?: ProductOption | null
   galleryImages?: string[]
   subCategoryName?: string

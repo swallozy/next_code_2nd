@@ -9,7 +9,7 @@ import { ArrowIcon } from '@/components/icons'
 import { useCart } from '@/features/cart/cart-provider'
 import { getPaginatedProducts } from '@/features/products/api'
 import type { Product } from '@/features/products/types'
-import { formatPrice, mediaFrom, type StoreProduct } from '@/lib/store-shared'
+import { formatPrice, isProductSoldOut, mediaFrom, type StoreProduct } from '@/lib/store-shared'
 
 function inferSoundType(switchType?: string, description?: string): string {
   const norm = (switchType || '').trim().toLowerCase()
@@ -27,12 +27,7 @@ function mapStoreProductToBuilderProduct(item: StoreProduct): Product {
   const firstImage =
     item.galleryImages?.[0] ||
     (item.images?.length ? mediaFrom(item.images[0])?.url || '' : '')
-  const soldOutFlag = Boolean(
-    item.isSoldOut ||
-    (item as { soldOut?: boolean }).soldOut ||
-    item.stockQuantity <= 0 ||
-    item.status === 'SOLD_OUT',
-  )
+  const soldOutFlag = isProductSoldOut(item as StoreProduct & { soldOut?: boolean })
 
   return {
     productId: Number(item.id),
@@ -150,15 +145,9 @@ export default function CustomBuilderPage() {
 
   // 수동 부품 선택 및 선택 해제(토글) 핸들러
   const handleSelectPart = (category: keyof ManualSelectionState, product: Product) => {
-    const isUnavailable =
-      product.stockQuantity <= 0 ||
-      Boolean(product.isSoldOut) ||
-      product.status === 'SOLD_OUT' ||
-      product.status === 'DISCONTINUED'
-
-    if (isUnavailable) {
+    if (isProductSoldOut(product)) {
       alert(
-        `[${product.name}]\n해당 부품은 현재 품절 또는 판매 중지 상태이므로 선택할 수 없습니다.`,
+        `[${product.name}]\n해당 부품은 현재 품절 상태이므로 선택할 수 없습니다.`,
       )
       return
     }
@@ -209,10 +198,12 @@ export default function CustomBuilderPage() {
 
   // ==================== 자동 추천 알고리즘 로직 ====================
   const handleGenerateRecommendation = () => {
-    const availableHousings = allHousings.filter(
-      (h) => !h.isSoldOut && h.stockQuantity > 0 && h.status !== 'DISCONTINUED',
-    )
-    const housingCandidates = availableHousings.length > 0 ? availableHousings : allHousings
+    const availableOrAll = (items: Product[]) => {
+      const avail = items.filter((item) => !isProductSoldOut(item))
+      return avail.length > 0 ? avail : items
+    }
+
+    const housingCandidates = availableOrAll(allHousings)
     const matchedHousing =
       housingCandidates.find((h) => h.layout === surveyAnswers.layout) || housingCandidates[0]
 
@@ -221,10 +212,7 @@ export default function CustomBuilderPage() {
       return
     }
 
-    const availablePcbs = allPcbs.filter(
-      (p) => !p.isSoldOut && p.stockQuantity > 0 && p.status !== 'DISCONTINUED',
-    )
-    const pcbCandidates = availablePcbs.length > 0 ? availablePcbs : allPcbs
+    const pcbCandidates = availableOrAll(allPcbs)
 
     let matchedPcb = pcbCandidates.find(
       (pcb) =>
@@ -240,10 +228,7 @@ export default function CustomBuilderPage() {
       return
     }
 
-    const availableSwitches = allSwitches.filter(
-      (s) => !s.isSoldOut && s.stockQuantity > 0 && s.status !== 'DISCONTINUED',
-    )
-    const switchCandidates = availableSwitches.length > 0 ? availableSwitches : allSwitches
+    const switchCandidates = availableOrAll(allSwitches)
 
     let matchedSwitch = switchCandidates.find(
       (sw) =>
@@ -260,10 +245,7 @@ export default function CustomBuilderPage() {
       return
     }
 
-    const availableKeycaps = allKeycaps.filter(
-      (k) => !k.isSoldOut && k.stockQuantity > 0 && k.status !== 'DISCONTINUED',
-    )
-    const keycapCandidates = availableKeycaps.length > 0 ? availableKeycaps : allKeycaps
+    const keycapCandidates = availableOrAll(allKeycaps)
 
     const matchedKeycap =
       keycapCandidates.find((k) => k.material === surveyAnswers.keycapStyle) || keycapCandidates[0]
@@ -877,11 +859,7 @@ export default function CustomBuilderPage() {
                 <div className="grid grid-cols-3 gap-4 max-sm:grid-cols-1">
                   {activeList.map((item) => {
                     const isSelected = manualSelection[activeField]?.productId === item.productId
-                    const isUnavailable =
-                      item.stockQuantity <= 0 ||
-                      Boolean(item.isSoldOut) ||
-                      item.status === 'SOLD_OUT' ||
-                      item.status === 'DISCONTINUED'
+                    const isUnavailable = isProductSoldOut(item)
 
                     return (
                       <button

@@ -34,11 +34,24 @@ export type StoreProduct = {
   material?: string
   style?: string
   isSoldOut?: boolean
-  status?: 'ACTIVE' | 'SOLD_OUT' | 'DISCONTINUED'
+  status?: 'ACTIVE' | 'SOLD_OUT'
   subCategoryName?: string
   categoryId?: string
   parentCategoryId?: string
   galleryImages?: string[]
+}
+
+export function isProductSoldOut(product: {
+  isSoldOut?: boolean
+  soldOut?: boolean
+  stockQuantity: number
+  status?: string
+}): boolean {
+  return (
+    Boolean(product.isSoldOut || product.soldOut) ||
+    product.stockQuantity <= 0 ||
+    product.status === 'SOLD_OUT'
+  )
 }
 
 export function mediaFrom(value: StoreProduct['images'][number]): StoreMedia | null {
