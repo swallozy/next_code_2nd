@@ -18,10 +18,10 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
   const rawImages = product.images.length
     ? product.images.map(mediaFrom).filter((image) => Boolean(image?.url))
     : (product.galleryImages || []).map((url, index) => ({
-        id: index + 1,
-        url,
-        alt: product.name,
-      }))
+      id: index + 1,
+      url,
+      alt: product.name,
+    }))
 
   const images = rawImages.map((image, index) => ({
     id: image?.id ?? index + 1,
@@ -99,9 +99,8 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
               >
                 <Image
                   alt={currentImage.alt || product.name}
-                  className={`object-cover transition-all duration-300 group-hover:scale-[1.02] ${
-                    isSoldOut ? 'opacity-60' : ''
-                  }`}
+                  className={`object-cover transition-all duration-300 group-hover:scale-[1.02] ${isSoldOut ? 'opacity-60' : ''
+                    }`}
                   fill
                   priority
                   sizes="(max-width: 1024px) 92vw, 50vw"
@@ -170,11 +169,10 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
                 const isSelected = safeImageIndex === index
                 return (
                   <button
-                    className={`relative aspect-square overflow-hidden rounded-md bg-zinc-100 transition ${
-                      isSelected
+                    className={`relative aspect-square overflow-hidden rounded-md bg-zinc-100 transition ${isSelected
                         ? 'ring-2 ring-zinc-950 ring-offset-2'
                         : 'opacity-70 hover:opacity-100'
-                    }`}
+                      }`}
                     key={image.id || index}
                     onClick={() => setSelectedImageIndex(index)}
                     type="button"
@@ -193,119 +191,118 @@ export function ProductDetailView({ product }: ProductDetailViewProps) {
           )}
         </div>
 
-      {/* 우측: 상품 정보 및 주문 컨트롤 */}
-      <div className="lg:sticky lg:top-28 lg:self-start">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
-          {product.brand} / {product.category.replace('-', ' ')}
-          {product.subCategoryName ? ` · ${product.subCategoryName}` : ''}
-        </p>
-        <h1 className="mt-5 text-5xl font-medium leading-none tracking-[-0.06em]">
-          {product.name}
-        </h1>
+        {/* 우측: 상품 정보 및 주문 컨트롤 */}
+        <div className="lg:sticky lg:top-28 lg:self-start">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            {product.brand} / {product.category.replace('-', ' ')}
+            {product.subCategoryName ? ` · ${product.subCategoryName}` : ''}
+          </p>
+          <h1 className="mt-5 text-5xl font-medium leading-none tracking-[-0.06em]">
+            {product.name}
+          </h1>
 
-        <div className="mt-6 flex items-baseline gap-3">
-          <p className="text-2xl font-medium">{formatPrice(unitPrice)}</p>
-        </div>
+          <div className="mt-6 flex items-baseline gap-3">
+            <p className="text-2xl font-medium">{formatPrice(unitPrice)}</p>
+          </div>
 
-        <p className="my-8 border-y border-zinc-200 py-6 text-base leading-7 text-zinc-600">
-          {product.description}
-        </p>
+          <p className="my-8 border-y border-zinc-200 py-6 text-base leading-7 text-zinc-600">
+            {product.description}
+          </p>
 
-        {/* 수량 및 장바구니 담기 */}
-        <div className="flex gap-3">
-          <div className="flex h-14 items-center rounded-md border border-zinc-200">
+          {/* 수량 및 장바구니 담기 */}
+          <div className="flex gap-3">
+            <div className="flex h-14 items-center rounded-md border border-zinc-200">
+              <button
+                aria-label="Decrease quantity"
+                className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
+                disabled={isSoldOut}
+                onClick={handleDecreaseQuantity}
+                type="button"
+              >
+                <MinusIcon />
+              </button>
+              <span className="w-8 text-center text-sm font-medium">{quantity}</span>
+              <button
+                aria-label="Increase quantity"
+                className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
+                disabled={isSoldOut}
+                onClick={handleIncreaseQuantity}
+                type="button"
+              >
+                <PlusIcon />
+              </button>
+            </div>
+
             <button
-              aria-label="Decrease quantity"
-              className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
+              className={`h-14 flex-1 rounded-md px-6 text-sm font-semibold tracking-wide transition ${isSoldOut
+                  ? 'cursor-not-allowed bg-zinc-200 text-zinc-400'
+                  : 'bg-zinc-950 text-white hover:bg-zinc-800 active:scale-[0.99]'
+                }`}
               disabled={isSoldOut}
-              onClick={handleDecreaseQuantity}
+              onClick={handleAddToCart}
               type="button"
             >
-              <MinusIcon />
-            </button>
-            <span className="w-8 text-center text-sm font-medium">{quantity}</span>
-            <button
-              aria-label="Increase quantity"
-              className="h-full px-3 text-zinc-600 hover:text-black disabled:opacity-40"
-              disabled={isSoldOut}
-              onClick={handleIncreaseQuantity}
-              type="button"
-            >
-              <PlusIcon />
+              {isSoldOut ? 'SOLD OUT' : `ADD TO CART — ${formatPrice(unitPrice * quantity)}`}
             </button>
           </div>
 
-          <button
-            className={`h-14 flex-1 rounded-md px-6 text-sm font-semibold tracking-wide transition ${
-              isSoldOut
-                ? 'cursor-not-allowed bg-zinc-200 text-zinc-400'
-                : 'bg-zinc-950 text-white hover:bg-zinc-800 active:scale-[0.99]'
-            }`}
-            disabled={isSoldOut}
-            onClick={handleAddToCart}
-            type="button"
-          >
-            {isSoldOut ? 'SOLD OUT' : `ADD TO CART — ${formatPrice(unitPrice * quantity)}`}
-          </button>
+          {/* 제품 사양 및 상세 정보 */}
+          <dl className="mt-10 grid grid-cols-2 gap-y-4 border-t border-zinc-200 pt-7 text-sm">
+            <dt className="text-zinc-500">Stock</dt>
+            <dd className="text-right font-medium">
+              {isSoldOut ? 'Out of stock' : `${product.stockQuantity} available`}
+            </dd>
+
+            <dt className="text-zinc-500">Shipping</dt>
+            <dd className="text-right">
+              {product.shippingFee ? formatPrice(product.shippingFee) : 'Complimentary'}
+            </dd>
+
+            {product.category === 'keycaps' ? (
+              <>
+                <dt className="text-zinc-500">Layout</dt>
+                <dd className="text-right font-medium">풀배열 공용 (모든 배열 호환)</dd>
+              </>
+            ) : product.layout ? (
+              <>
+                <dt className="text-zinc-500">Layout</dt>
+                <dd className="text-right font-medium">{product.layout}%</dd>
+              </>
+            ) : null}
+
+            {product.pin && (
+              <>
+                <dt className="text-zinc-500">Pin spec</dt>
+                <dd className="text-right font-medium">{product.pin} Pin</dd>
+              </>
+            )}
+
+            {product.supportPins && product.supportPins.length > 0 && (
+              <>
+                <dt className="text-zinc-500">Supported Pins</dt>
+                <dd className="text-right font-medium">{product.supportPins.join(', ')} Pin</dd>
+              </>
+            )}
+
+            {product.switchType && (
+              <>
+                <dt className="text-zinc-500">Switch Type</dt>
+                <dd className="text-right font-medium uppercase">{product.switchType}</dd>
+              </>
+            )}
+
+            {product.material && (
+              <>
+                <dt className="text-zinc-500">Material</dt>
+                <dd className="text-right font-medium">{product.material}</dd>
+              </>
+            )}
+
+            <dt className="text-zinc-500">KC certification</dt>
+            <dd className="text-right">{product.kcCertificationNumber || 'Not applicable'}</dd>
+          </dl>
         </div>
-
-        {/* 제품 사양 및 상세 정보 */}
-        <dl className="mt-10 grid grid-cols-2 gap-y-4 border-t border-zinc-200 pt-7 text-sm">
-          <dt className="text-zinc-500">Stock</dt>
-          <dd className="text-right font-medium">
-            {isSoldOut ? 'Out of stock' : `${product.stockQuantity} available`}
-          </dd>
-
-          <dt className="text-zinc-500">Shipping</dt>
-          <dd className="text-right">
-            {product.shippingFee ? formatPrice(product.shippingFee) : 'Complimentary'}
-          </dd>
-
-          {product.category === 'keycaps' ? (
-            <>
-              <dt className="text-zinc-500">Layout</dt>
-              <dd className="text-right font-medium">풀배열 공용 (모든 배열 호환)</dd>
-            </>
-          ) : product.layout ? (
-            <>
-              <dt className="text-zinc-500">Layout</dt>
-              <dd className="text-right font-medium">{product.layout}%</dd>
-            </>
-          ) : null}
-
-          {product.pin && (
-            <>
-              <dt className="text-zinc-500">Pin spec</dt>
-              <dd className="text-right font-medium">{product.pin} Pin</dd>
-            </>
-          )}
-
-          {product.supportPins && product.supportPins.length > 0 && (
-            <>
-              <dt className="text-zinc-500">Supported Pins</dt>
-              <dd className="text-right font-medium">{product.supportPins.join(', ')} Pin</dd>
-            </>
-          )}
-
-          {product.switchType && (
-            <>
-              <dt className="text-zinc-500">Switch Type</dt>
-              <dd className="text-right font-medium uppercase">{product.switchType}</dd>
-            </>
-          )}
-
-          {product.material && (
-            <>
-              <dt className="text-zinc-500">Material</dt>
-              <dd className="text-right font-medium">{product.material}</dd>
-            </>
-          )}
-
-          <dt className="text-zinc-500">KC certification</dt>
-          <dd className="text-right">{product.kcCertificationNumber || 'Not applicable'}</dd>
-        </dl>
       </div>
-    </div>
 
       {/* 하단 스크롤 상세 콘텐츠 */}
       <ProductDetailStory galleryImages={images} product={product} />
