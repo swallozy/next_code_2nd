@@ -58,17 +58,41 @@ export function mediaFrom(value: StoreProduct['images'][number]): StoreMedia | n
   return typeof value === 'object' ? value : null
 }
 
-export function formatPrice(value: number) {
-  if (value >= 1000) {
-    return new Intl.NumberFormat('ko-KR', {
-      style: 'currency',
-      currency: 'KRW',
-      maximumFractionDigits: 0,
-    }).format(value)
+// 카테고리 ID를 우선 사용하고, 기존 API 응답의 이름도 지원합니다.
+export function resolveProductCategory(
+  categoryId: string | undefined,
+  categoryName: string,
+): StoreProduct['category'] {
+  const categories: Record<string, StoreProduct['category']> = {
+    housing: 'housing',
+    pcb: 'pcb',
+    keyboards: 'pcb',
+    switches: 'switches',
+    keycaps: 'keycaps',
+    하우징: 'housing',
+    기판: 'pcb',
+    '기판 (PCB)': 'pcb',
+    스위치: 'switches',
+    키캡: 'keycaps',
   }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  const category = Object.hasOwn(categories, categoryId ?? '')
+    ? categories[categoryId!]
+    : Object.hasOwn(categories, categoryName)
+      ? categories[categoryName]
+      : undefined
+  if (!category) throw new Error('알 수 없는 상품 카테고리입니다.')
+  return category
+}
+
+export function formatPrice(value: number) {
+  return `${new Intl.NumberFormat('ko-KR', {
     maximumFractionDigits: 0,
-  }).format(value)
+  }).format(value)}원`
+}
+
+export const productCategoryLabels: Record<StoreProduct['category'], string> = {
+  pcb: 'PCB',
+  switches: 'SWITCHES',
+  keycaps: 'KEYCAPS',
+  housing: 'HOUSING',
 }

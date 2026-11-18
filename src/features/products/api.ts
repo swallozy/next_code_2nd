@@ -2,11 +2,29 @@ import { apiRequest } from '@/lib/api-client'
 import type { StoreProduct } from '@/lib/store-shared'
 import type { Category, GetProductsParams, ProductListResponse } from './types'
 
+type ProductApiEnvelope<T> = {
+  success?: boolean
+  message?: string | null
+  data?: T
+}
+
+// 백엔드 ApiResponse({ success, message, data }) 래핑과 비래핑 JSON을 모두 지원합니다.
+async function productRequest<T>(path: string): Promise<T> {
+  const result = await apiRequest<T | ProductApiEnvelope<T>>(path)
+  if (result && typeof result === 'object' && !Array.isArray(result) && 'success' in result) {
+    if (result.success !== true) {
+      throw new Error(result.message || '상품 정보를 불러올 수 없습니다.')
+    }
+    return result.data as T
+  }
+  return result as T
+}
+
 /**
  * 카테고리 목록 조회 (Spring Boot /api/categories 직접 호출)
  */
 export async function getCategories(): Promise<Category[]> {
-  return await apiRequest<Category[]>('/api/categories')
+  return await productRequest<Category[]>('/api/categories')
 }
 
 /**
@@ -22,7 +40,7 @@ export async function getPaginatedProducts(
   if (params.size !== undefined) search.set('size', String(params.size))
 
   const queryString = search.toString() ? `?${search.toString()}` : ''
-  return await apiRequest<ProductListResponse>(`/api/products${queryString}`)
+  return await productRequest<ProductListResponse>(`/api/products${queryString}`)
 }
 
 /**
@@ -38,7 +56,7 @@ export async function getProducts(
 
   const category = categoryOrParams as StoreProduct['category'] | undefined
   const query = category ? `?category=${category}` : ''
-  const result = await apiRequest<StoreProduct[] | ProductListResponse>(`/api/products${query}`)
+  const result = await productRequest<StoreProduct[] | ProductListResponse>(`/api/products${query}`)
   if (Array.isArray(result)) return result
   if (result && Array.isArray(result.content)) return result.content
   throw new Error('백엔드 상품 목록 응답 형식이 올바르지 않습니다.')
@@ -49,7 +67,7 @@ export async function getProducts(
  */
 export async function getProductById(productId: string | number): Promise<StoreProduct> {
   const idStr = String(productId)
-  return await apiRequest<StoreProduct>(`/api/products/${encodeURIComponent(idStr)}`)
+  return await productRequest<StoreProduct>(`/api/products/${encodeURIComponent(idStr)}`)
 }
 
 /**

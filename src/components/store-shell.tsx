@@ -1,59 +1,149 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { CloseIcon } from '@/components/icons'
-import { SiteHeader } from '@/components/common/site-header'
-import type { ApiUser } from '@/features/auth/api'
-import { useCart } from '@/features/cart/cart-provider'
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { CloseIcon } from "@/components/icons";
+import { SiteHeader } from "@/components/common/site-header";
+import {
+  getCurrentUser,
+  logIn,
+  logOut,
+  type ApiUser,
+} from "@/features/auth/api";
+import { useCart } from "@/features/cart/cart-provider";
+import { ApiRequestError } from "@/lib/api-client";
 
-type AppUser = ApiUser
+type AppUser = ApiUser;
+
+// 이메일 형식 검사 (아이디@도메인.주소)
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function StoreShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
-  const { items, openCart, closeCart } = useCart()
-  const [authOpen, setAuthOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [authUser, setAuthUser] = useState<AppUser | null>(null)
-  const authPending = false
-  const [authError, setAuthError] = useState('')
+  const pathname = usePathname();
+  const router = useRouter();
+  const { items, openCart, closeCart } = useCart();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authUser, setAuthUser] = useState<AppUser | null>(null);
+  // 요청 중에는 버튼·입력창을 잠가서 중복 클릭을 막는다
+  const [authPending, setAuthPending] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [agreements, setAgreements] = useState({
     marketing: false,
     privacy: false,
     service: false,
-  })
-  const [navVisible, setNavVisible] = useState(true)
+  });
+  const [navVisible, setNavVisible] = useState(true);
+
+  // 화면이 처음 열릴 때(새로고침 포함) 쿠키로 로그인 상태를 복구한다
+  useEffect(() => {
+    let ignore = false;
+    getCurrentUser()
+      .then(({ user }) => {
+        if (!ignore) setAuthUser(user);
+      })
+      .catch(() => {
+        if (!ignore) setAuthUser(null);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
-    if (!pathname.startsWith('/products/')) return
-    let previous = window.scrollY
+    if (!pathname.startsWith("/products/")) return;
+    let previous = window.scrollY;
     const onScroll = () => {
-      const current = window.scrollY
-      setNavVisible(current < 80 || current < previous)
-      previous = current
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [pathname])
+      const current = window.scrollY;
+      setNavVisible(current < 80 || current < previous);
+      previous = current;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pathname]);
+
+  // 가입 완료 또는 로그인 안내에서 스토어로 이동하면 기존 계정 패널을 로그인 모드로 엽니다.
+  useEffect(() => {
+    if (pathname !== "/" || new URLSearchParams(window.location.search).get("login") !== "1") return;
+    const frame = window.requestAnimationFrame(() => {
+      closeCart();
+      setAuthError("");
+      setAuthMode("login");
+      setAuthOpen(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname, closeCart]);
 
   const openAccount = () => {
-    closeCart()
-    setAuthError('')
-    setAuthOpen(true)
-  }
+    closeCart();
+    setAuthError("");
+    setAuthOpen(true);
+  };
 
-  const submitAuth = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    // TODO(담당 1): 로그인 입력 검증 후 로그인 API를 호출하고 세션 상태를 반영합니다.
-    setAuthError('로그인 기능은 아직 연결되지 않았습니다.')
-  }
+  // 로그인: 입력 검증 → 로그인 API 호출 → 사용자 상태 반영
+  const submitAuth = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (authMode !== "login") return; // 회원가입은 담당 2
 
-  const logout = () => {
-    // TODO(담당 1): 로그아웃 API 호출 후 세션과 사용자 상태를 초기화합니다.
-    setAuthUser(null)
-    setAuthOpen(false)
-  }
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    if (!email) {
+      setAuthError("이메일을 입력해 주세요.");
+      return;
+    }
+    if (!EMAIL_PATTERN.test(email)) {
+      setAuthError("올바른 이메일 형식으로 입력해 주세요.");
+      return;
+    }
+    if (!password) {
+      setAuthError("비밀번호를 입력해 주세요.");
+      return;
+    }
+
+    setAuthError("");
+    setAuthPending(true);
+    try {
+      const { user } = await logIn(email, password);
+      setAuthUser(user);
+      setAuthOpen(false);
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        setAuthError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      } else {
+        setAuthError("잠시 후 다시 시도해 주세요.");
+      }
+      // 실패하면 비밀번호 입력칸만 비운다
+      const passwordInput = form.elements.namedItem("password");
+      if (passwordInput instanceof HTMLInputElement) passwordInput.value = "";
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  // 로그아웃: 로그아웃 API 호출 → 사용자 상태 초기화 → 메인으로 이동
+  const logout = async () => {
+    setAuthError("");
+    setAuthPending(true);
+    try {
+      await logOut();
+      setAuthUser(null);
+      setAuthOpen(false);
+      router.replace("/");
+    } catch {
+      setAuthError("로그아웃에 실패했습니다. 다시 시도해 주세요.");
+    } finally {
+      setAuthPending(false);
+    }
+  };
 
   return (
     <>
@@ -61,35 +151,35 @@ export function StoreShell({ children }: { children: ReactNode }) {
         cartCount={items.length}
         onOpenAccount={openAccount}
         onOpenCart={() => {
-          setAuthOpen(false)
-          openCart()
+          setAuthOpen(false);
+          openCart();
         }}
         user={authUser}
         visible={navVisible}
       />
       <main className="min-h-screen pt-[123px] md:pt-[150px]">{children}</main>
       <div
-        className={`fixed inset-0 z-[60] transition ${authOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={`fixed inset-0 z-[60] transition ${authOpen ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!authOpen}
       >
         <button
           aria-label="Close account panel"
-          className={`absolute inset-0 bg-black/50 transition-opacity ${authOpen ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 bg-black/50 transition-opacity ${authOpen ? "opacity-100" : "opacity-0"}`}
           onClick={() => setAuthOpen(false)}
           type="button"
         />
         <aside
-          className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white p-7 shadow-2xl transition-transform duration-500 ${authOpen ? 'translate-x-0' : 'translate-x-full'}`}
+          className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white p-7 shadow-2xl transition-transform duration-500 ${authOpen ? "translate-x-0" : "translate-x-full"}`}
         >
           <div className="flex items-center justify-between border-b border-zinc-200 pb-5">
             <h2 className="text-2xl font-medium tracking-[-0.04em]">
               {authUser
-                ? authUser.role === 'admin'
-                  ? 'Admin account'
-                  : 'My page'
-                : authMode === 'register'
-                  ? '회원가입'
-                  : 'Login'}
+                ? authUser.role === "admin"
+                  ? "Admin account"
+                  : "My page"
+                : authMode === "register"
+                  ? "회원가입"
+                  : "Login"}
             </h2>
             <button
               aria-label="Close account panel"
@@ -112,9 +202,11 @@ export function StoreShell({ children }: { children: ReactNode }) {
                 </p>
                 <div className="mt-8 flex items-center justify-between border-y border-zinc-200 py-4 text-sm">
                   <span className="text-zinc-500">Role</span>
-                  <strong className="uppercase tracking-[0.1em]">{authUser.role}</strong>
+                  <strong className="uppercase tracking-[0.1em]">
+                    {authUser.role}
+                  </strong>
                 </div>
-                {authUser.role === 'admin' && (
+                {authUser.role === "admin" && (
                   <Link
                     className="mt-5 inline-flex h-12 items-center justify-center rounded-md bg-zinc-950 text-sm font-semibold text-white transition hover:bg-zinc-800"
                     href="/admin/products"
@@ -124,7 +216,10 @@ export function StoreShell({ children }: { children: ReactNode }) {
                   </Link>
                 )}
                 {authError && (
-                  <p className="mt-5 text-sm leading-6 text-red-700" role="alert">
+                  <p
+                    className="mt-5 text-sm leading-6 text-red-700"
+                    role="alert"
+                  >
                     {authError}
                   </p>
                 )}
@@ -135,13 +230,17 @@ export function StoreShell({ children }: { children: ReactNode }) {
                 onClick={logout}
                 type="button"
               >
-                {authPending ? 'SIGNING OUT…' : 'LOGOUT'}
+                {authPending ? "SIGNING OUT…" : "LOGOUT"}
               </button>
             </>
           ) : (
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitAuth}>
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={submitAuth}
+              noValidate
+            >
               <div className="flex-1 overflow-y-auto py-7 pr-1">
-                {authMode === 'login' ? (
+                {authMode === "login" ? (
                   <>
                     <p className="mb-7 text-sm leading-6 text-zinc-500">
                       이메일과 비밀번호를 입력해 로그인해 주세요.
@@ -174,14 +273,16 @@ export function StoreShell({ children }: { children: ReactNode }) {
                       disabled={authPending}
                       id="password"
                       maxLength={128}
-                      minLength={8}
                       name="password"
-                      placeholder="8자 이상 입력해 주세요"
+                      placeholder="비밀번호를 입력하세요"
                       required
                       type="password"
                     />
                     {authError && (
-                      <p className="mt-5 text-sm leading-6 text-red-700" role="alert">
+                      <p
+                        className="mt-5 text-sm leading-6 text-red-700"
+                        role="alert"
+                      >
                         {authError}
                       </p>
                     )}
@@ -218,48 +319,51 @@ export function StoreShell({ children }: { children: ReactNode }) {
                     </p>
                     {[
                       {
-                        autoComplete: 'email',
-                        id: 'register-email',
-                        label: '이메일',
-                        name: 'email',
-                        placeholder: 'example@email.com',
-                        type: 'email',
+                        autoComplete: "email",
+                        id: "register-email",
+                        label: "이메일",
+                        name: "email",
+                        placeholder: "example@email.com",
+                        type: "email",
                       },
                       {
-                        autoComplete: 'new-password',
-                        id: 'register-password',
-                        label: '비밀번호',
-                        name: 'password',
-                        placeholder: '8자 이상 입력해 주세요',
-                        type: 'password',
+                        autoComplete: "new-password",
+                        id: "register-password",
+                        label: "비밀번호",
+                        name: "password",
+                        placeholder: "8자 이상 입력해 주세요",
+                        type: "password",
                       },
                       {
-                        autoComplete: 'new-password',
-                        id: 'password-confirm',
-                        label: '비밀번호 확인',
-                        name: 'passwordConfirm',
-                        placeholder: '비밀번호를 다시 입력해 주세요',
-                        type: 'password',
+                        autoComplete: "new-password",
+                        id: "password-confirm",
+                        label: "비밀번호 확인",
+                        name: "passwordConfirm",
+                        placeholder: "비밀번호를 다시 입력해 주세요",
+                        type: "password",
                       },
                       {
-                        autoComplete: 'name',
-                        id: 'register-name',
-                        label: '이름',
-                        name: 'name',
-                        placeholder: '이름',
-                        type: 'text',
+                        autoComplete: "name",
+                        id: "register-name",
+                        label: "이름",
+                        name: "name",
+                        placeholder: "이름",
+                        type: "text",
                       },
                       {
-                        autoComplete: 'tel',
-                        id: 'register-phone',
-                        label: '연락처',
-                        name: 'phone',
-                        placeholder: '010-0000-0000',
-                        type: 'tel',
+                        autoComplete: "tel",
+                        id: "register-phone",
+                        label: "연락처",
+                        name: "phone",
+                        placeholder: "010-0000-0000",
+                        type: "tel",
                       },
                     ].map((field) => (
                       <div className="mb-5" key={field.id}>
-                        <label className="block text-xs font-medium" htmlFor={field.id}>
+                        <label
+                          className="block text-xs font-medium"
+                          htmlFor={field.id}
+                        >
                           {field.label} <span className="text-red-600">*</span>
                         </label>
                         <input
@@ -267,8 +371,10 @@ export function StoreShell({ children }: { children: ReactNode }) {
                           className="mt-2 h-11 w-full rounded-full border border-zinc-300 px-4 text-sm outline-none transition placeholder:text-zinc-300 focus:border-zinc-950"
                           disabled={authPending}
                           id={field.id}
-                          maxLength={field.type === 'password' ? 128 : undefined}
-                          minLength={field.type === 'password' ? 8 : undefined}
+                          maxLength={
+                            field.type === "password" ? 128 : undefined
+                          }
+                          minLength={field.type === "password" ? 8 : undefined}
                           name={field.name}
                           placeholder={field.placeholder}
                           required
@@ -277,7 +383,10 @@ export function StoreShell({ children }: { children: ReactNode }) {
                       </div>
                     ))}
                     <div className="mb-7">
-                      <label className="block text-xs font-medium" htmlFor="shipping-address">
+                      <label
+                        className="block text-xs font-medium"
+                        htmlFor="shipping-address"
+                      >
                         배송지 <span className="text-zinc-400">(선택)</span>
                       </label>
                       <input
@@ -294,11 +403,17 @@ export function StoreShell({ children }: { children: ReactNode }) {
                     <div className="border-t border-zinc-200 pt-6">
                       <div className="mb-4 flex items-center justify-between">
                         <strong className="text-sm">약관 동의</strong>
-                        <span className="text-[11px] text-zinc-500">필수 / 선택</span>
+                        <span className="text-[11px] text-zinc-500">
+                          필수 / 선택
+                        </span>
                       </div>
                       <label className="flex cursor-pointer items-center gap-3 border-b border-zinc-200 pb-4 text-sm">
                         <input
-                          checked={agreements.service && agreements.privacy && agreements.marketing}
+                          checked={
+                            agreements.service &&
+                            agreements.privacy &&
+                            agreements.marketing
+                          }
                           className="size-4 accent-zinc-950"
                           onChange={(event) =>
                             setAgreements({
@@ -359,20 +474,23 @@ export function StoreShell({ children }: { children: ReactNode }) {
                       </div>
                     </div>
                     {authError && (
-                      <p className="mb-5 text-sm leading-6 text-red-700" role="alert">
+                      <p
+                        className="mb-5 text-sm leading-6 text-red-700"
+                        role="alert"
+                      >
                         {authError}
                       </p>
                     )}
                     <button
                       className="text-xs font-semibold underline underline-offset-4"
                       onClick={() => {
-                        setAuthError('')
-                        setAuthMode('login')
+                        setAuthError("");
+                        setAuthMode("login");
                         setAgreements({
                           marketing: false,
                           privacy: false,
                           service: false,
-                        })
+                        });
                       }}
                       type="button"
                     >
@@ -387,15 +505,15 @@ export function StoreShell({ children }: { children: ReactNode }) {
                   disabled={authPending}
                   type="submit"
                 >
-                  {authPending ? '처리 중…' : authMode === 'login' ? '로그인' : '회원가입'}
+                  {authPending ? "처리 중…" : authMode === "login" ? "로그인" : "회원가입"}
                 </button>
-                {authMode === 'login' && (
+                {authMode === "login" && (
                   <Link
                     className="flex h-14 items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-800 transition hover:border-zinc-950 hover:bg-zinc-50"
                     href="/signup"
                     onClick={() => {
-                      setAuthError('')
-                      setAuthOpen(false)
+                      setAuthError("");
+                      setAuthOpen(false);
                     }}
                   >
                     회원가입
@@ -407,5 +525,5 @@ export function StoreShell({ children }: { children: ReactNode }) {
         </aside>
       </div>
     </>
-  )
+  );
 }
